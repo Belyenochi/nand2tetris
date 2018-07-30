@@ -19,5 +19,5 @@ CHIP DMux {
     And(a=in,b=nsel,out=a);
 
     /* b */
-    And(a=in,b=sel,out=b);   
+    And(a=in,b=sel,out=b);
 }
