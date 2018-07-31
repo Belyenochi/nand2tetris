@@ -1,5 +1,3 @@
-var fs = require('fs');
-
-fs.readFile('add/Add.asm', 'utf8', function (err, data) {
-    console.log(data,data.split('\n'));
-});
+111undefined000000
+111undefined000000
+111undefined000000
