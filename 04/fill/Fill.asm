@@ -13,12 +13,61 @@
 
 // Put your code here.
 
+(LISTEN)
+  @SCREEN
+  D=A
+  @addr        // Get the first address of the screen
+  M=D
+
+  @8192        // Get Total length of the screen
+  D = A
+  @n
+  M=D
+
+  @i          // 16 pixels at a time
+  M=0
+
+  @signal     // Rendering keyboard event switches
+  M=0
+
+  @24576      // Get keyboard input
+  D=M
+
+  @LOOP       // keyboard input exist condition
+  D;JEQ
+
+  @signal     // if keyboard input exist, Set the switch to true, -1 to render 16 pixels
+  M=-1
 
 (LOOP)
-	@24576
-	D = M
-	@SCREEN
-	M = D
+  @i
+  D=M
+
+  @n
+  D=D-M
+
+  @END
+  D;JGE       // if i >= n goto END
+
+  @signal
+  D=M
+
+  @addr
+  A=M
+  M=D        // RAM[addr] = 1111111111111111
+
+  @i
+  M=M+1      // i = i + 1
+
+  @1
+  D=A
+
+  @addr
+  M=D+M      // addr = addr + 1
+
+  @LOOP
+  0;JMP      // goto LOOP
 (END)
-	@END
-	0;JMP
+
+@LISTEN    // program's end
+0;JMP      // infinite loop
