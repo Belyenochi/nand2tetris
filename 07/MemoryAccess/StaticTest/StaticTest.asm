@@ -1,0 +1,157 @@
+// push constant 111
+@111
+                                D=A
+                                @SP
+                                A=M
+                                M=D
+                                @SP
+                                M=M+1
+// push constant 333
+@333
+                                D=A
+                                @SP
+                                A=M
+                                M=D
+                                @SP
+                                M=M+1
+// push constant 888
+@888
+                                D=A
+                                @SP
+                                A=M
+                                M=D
+                                @SP
+                                M=M+1
+// pop static 8
+@SP
+                                 A=M-1
+                                 D=M
+                                 @13
+                                 M=D
+                                 @SP
+                                 M=M-1
+                                 @8
+                                 D=A
+                                 @16
+                                 D=D+A
+                                 @14
+                                 M=D
+                                 @13
+                                 D=M
+                                 @14
+                                 A=M
+                                 M=D
+// pop static 3
+@SP
+                                 A=M-1
+                                 D=M
+                                 @13
+                                 M=D
+                                 @SP
+                                 M=M-1
+                                 @3
+                                 D=A
+                                 @16
+                                 D=D+A
+                                 @14
+                                 M=D
+                                 @13
+                                 D=M
+                                 @14
+                                 A=M
+                                 M=D
+// pop static 1
+@SP
+                                 A=M-1
+                                 D=M
+                                 @13
+                                 M=D
+                                 @SP
+                                 M=M-1
+                                 @1
+                                 D=A
+                                 @16
+                                 D=D+A
+                                 @14
+                                 M=D
+                                 @13
+                                 D=M
+                                 @14
+                                 A=M
+                                 M=D
+// push static 3
+@3
+                                D=A
+                                @16
+                                A=D+A
+                                D=M
+                                @SP
+                                A=M
+                                M=D
+                                @SP
+                                M=M+1
+// push static 1
+@1
+                                D=A
+                                @16
+                                A=D+A
+                                D=M
+                                @SP
+                                A=M
+                                M=D
+                                @SP
+                                M=M+1
+// sub
+@SP
+                            A=M-1
+                            D=M
+                            @SP
+                            M=M-1
+                            @13
+                            M=D
+                            @SP
+                            A=M-1
+                            D=M
+                            @SP
+                            M=M-1
+                            @13
+                            D=D-M
+                            @SP
+                            A=M
+                            M=D
+                            @SP
+                            M=M+1
+// push static 8
+@8
+                                D=A
+                                @16
+                                A=D+A
+                                D=M
+                                @SP
+                                A=M
+                                M=D
+                                @SP
+                                M=M+1
+// add
+@SP
+                            A=M-1
+                            D=M
+                            @SP
+                            M=M-1
+                            @13
+                            M=D
+                            @SP
+                            A=M-1
+                            D=M
+                            @SP
+                            M=M-1
+                            @13
+                            D=D+M
+                            @SP
+                            A=M
+                            M=D
+                            @SP
+                            M=M+1
+(END1)
+                                @END1
+                                0;JMP
