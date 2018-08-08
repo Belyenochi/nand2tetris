@@ -26,11 +26,11 @@ class Parser {
     commandType() {
         let match;
 
-        if (match = /^pop\s+([a-z|A-Z]*)?\s+([0-9]+)/.exec(this.currCommand)) {
+        if (match = /^pop\s+([a-z|A-Z|\d]*)?\s+([0-9]+)/.exec(this.currCommand)) {
             return {type :'C_POP',arg1: match[1], arg2: match[2], matches: match[0]};
-        } else if (match = /^push\s+([a-z|A-Z]+)?\s+([0-9]+)/.exec(this.currCommand)) {  // label symbols
+        } else if (match = /^push\s+([a-z|A-Z|\d]+)?\s+([0-9]+)/.exec(this.currCommand)) {  // label symbols
             return {type :'C_PUSH',arg1: match[1], arg2: match[2], matches: match[0]};
-        } else if (match = /^and|or|not|neg|add|sub|eq|lt|gt/.exec(this.currCommand)) {  // label symbols
+        } else if (match = /^and|^or|^not|^neg|^add|^sub|^eq|^lt|^gt/.exec(this.currCommand)) {  // label symbols
             return {type :'C_ARITHMETIC',operator: match[0], matches: match[0]};
         } else if (match = /^label\s+(\w+)/.exec(this.currCommand)) {  // label symbols
             return {type :'C_LABEL',labelName: match[1], matches: match[0]};
@@ -68,7 +68,7 @@ class CodeWriter {
 
         while (paserObject.advance()) {
             let command = paserObject.commandType();
-            // console.log(command,paserObject)
+            console.log(command)
             switch (command.type) {
                 case 'C_PUSH': this.writePushPop(command); break;
                 case 'C_POP': this.writePushPop(command); break;
@@ -398,7 +398,7 @@ class CodeWriter {
     writeCall(command) {
         let template = `// ${command.matches}\n`;
 
-        template += `@return-address-${command.funName}
+        template += `@return-address-${command.funName}${global_config.counter}
                      D=A
                      @SP
                      A=M
@@ -433,13 +433,6 @@ class CodeWriter {
                      M=D
                      @SP
                      M=M+1
-                     @SP
-                     D=M
-                     @SP
-                     A=M
-                     M=D
-                     @SP
-                     M=M+1
                      @${command.args ? command.args : 0}
                      D=A
                      @13
@@ -449,12 +442,6 @@ class CodeWriter {
                      @13
                      M=D+M
                      @SP
-                     A=M
-                     M=D
-                     @SP
-                     M=M+1
-                     @SP
-                     A=M
                      D=M
                      @ARG
                      M=D
@@ -468,7 +455,7 @@ class CodeWriter {
                      M=D
                      @${command.funName}
                      D;JMP
-                     (return-address-${command.funName})`;
+                     (return-address-${command.funName}${global_config.counter++})`;
         this.outputAsm = this.outputAsm.concat(template.split('\n'));
     }
 
@@ -586,10 +573,10 @@ function fileDisplay(filePath) {
         fileName = item.split('/').pop().replace(/\.vm/i, "");
 
         commandArray = commandArray.concat(
-        fs.readFileSync(item, 'utf8').split('\n')
-            .map((item)=>{
-                return item.replace(/static/, "static" + fileName);
-            }));
+            fs.readFileSync(item, 'utf8').split('\n')
+                .map((item)=>{
+                    return item.replace(/static/, "static" + fileName);
+                }));
     });
 
     return commandArray;
@@ -605,7 +592,9 @@ function clearData(commands) {
         return true;
     })
 }
-let write = new CodeWriter('FunctionCalls/FibonacciElement/FibonacciElement.asms')
-    .translator(new Parser(['FunctionCalls/FibonacciElement/Main.vm',
-        'FunctionCalls/FibonacciElement/Sys.vm'])).outputFile();
+// let write = new CodeWriter('FunctionCalls/StaticsTest/StaticTest.asm')
+//     .translator(new Parser(['FunctionCalls/StaticsTest/Class1.vm',
+//         'FunctionCalls/StaticsTest/Class2.vm', 'FunctionCalls/StaticsTest/Sys.vm'])).outputFile();
+let write = new CodeWriter('FunctionCalls/NestedCall/NestedCall.asm')
+    .translator(new Parser(['FunctionCalls/NestedCall/Sys.vm'])).outputFile();
 // fileDisplay("FunctionCalls/FibonacciElement/");
