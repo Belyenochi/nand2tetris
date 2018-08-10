@@ -1,0 +1,78 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/09/Square/Square.jack
+
+/** Implements a graphical square. */
+class Square {
+
+   field int x, y; // screen location of the square's top-left corner
+   field int size; // length of this square, in pixels
+   field Array map;
+
+   /** Constructs a new square with a given location and size. */
+   constructor Square new(int Asize) {
+      let map = Array.new(8);
+      let size = Asize;
+      do initMap();
+      return this;
+   }
+
+   method void initMap() {
+      var int i;
+      var int j;
+      var Array row0;
+      var Array row1;
+
+      let row0 = Array.new(16);
+      let row1 = Array.new(16);
+
+      let i = 0;
+      let j = 0;
+      while (i < 16) {
+         let row0[i] = 0;
+         let i = i + 1;
+      }
+      let map[0] = row0;
+      let map[1] = row0;
+      let map[2] = row0;
+      let map[3] = row0;
+      let map[4] = row0;
+      let map[5] = row0;
+      while (j < 16) {
+         let row1[j] = 0;
+         if (j = 11) {
+            let row1[j] = 1;
+            do draw(11*32,6*32,true);
+         }
+
+         if (j = 13) {
+            let row1[j] = 1;
+            do draw(13*32,6*32,true);
+         }
+         let j = j + 1;
+      }
+      let map[6] = row1;
+      let map[7] = row0;
+
+      return;
+   }
+
+
+   /** Disposes this square. */
+   method void dispose() {
+      do Memory.deAlloc(this);
+      return;
+   }
+
+   /** Draws the square on the screen. */
+   method void draw(int x,int y,boolean fill) {
+      do Screen.setColor(fill);
+      do Screen.drawRectangle(x, y, x + size-1, y + size-1);
+      return;
+   }
+
+   method Array getMap() {
+      return map;
+   }
+}
