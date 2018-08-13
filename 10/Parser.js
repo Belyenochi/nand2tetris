@@ -60,8 +60,8 @@ class JackTokenizer {
             throw SyntaxError("Invalid Syntax: " + this.input);
         }
 
-        this.input = this.input.slice(match[0].length)
-        }
+        this.input = this.input.slice(match[0].length);
+    }
 
         tokenType() {
 
@@ -102,6 +102,7 @@ class CompilationEngine {
 
     compileClass() {
         this.eat('class', 'value');
+        global_table.className = this.currentToken;
         this.eat('identifier', 'type');
         this.eat('{', 'value');
 
@@ -190,7 +191,7 @@ class CompilationEngine {
                 case 'let'    : this.compileLet();break;
                 case 'if'     : this.compileIf();break;
                 case 'while'  : this.compileWhile();break;
-                case 'do     ': this.compileDo();break;
+                case 'do'     : this.compileDo();break;
                 default       : this.compileReturn();break;
             }
         }
@@ -203,26 +204,88 @@ class CompilationEngine {
     }
 
     compileLet() {
-
+        this.eat('let', 'value');
+        this.eat('identifier', 'type');
+        if (this.currentToken === '[') {
+            this.eat('[', 'value');
+            this.compileExpression();
+            this.eat(']', 'value');
+        }
+        this.eat('=', 'value');
+        this.compileExpression();
+        this.eat(';', 'value');
     }
 
     compileWhile() {
-
+        this.eat('while', 'value');
+        this.eat('(', 'value');
+        this.compileExpression();
+        this.eat(')', 'value');
+        this.eat('{', 'value');
+        this.compileStatements();
+        this.eat('}', 'value');
     }
 
     compileReturn() {
-
+        this.eat('return', 'value');
+        if (this.currentToken.value !== ';') {
+            this.compileExpression();
+        }
+        this.eat(';', 'value');
     }
 
     compileIf() {
-
+        this.eat('if', 'value');
+        this.eat('(', 'value');
+        this.compileExpression();
+        this.eat(')', 'value');
+        this.eat('{', 'value');
+        this.compileStatements();
+        this.eat('}', 'value');
+        if (this.currentToken === 'else') {
+            this.eat('else', 'value');
+            this.eat('{', 'value');
+            this.compileStatements();
+            this.eat('}', 'value');
+        }
     }
     compileSubroutineCall() {
+        let second = this.tokenizer.advance();
+        if (second.value === '.') {
+            this.tokenizer.input = second + ' ' + this.tokenizer.input;
 
+            if (this.currentToken === global_table.className) {
+                this.eat('identifier', 'type'); // deal with className
+            } else {
+                this.eat('identifier', 'type'); // deal with varName
+            }
+            this.eat('.', 'value');
+            this.eat('(', 'value');
+            this.compileExpressionList();
+            this.eat(')', 'value');
+        } else {
+            this.eat('identifier', 'type'); // deal with subroutineName
+            this.eat('(', 'value');
+            this.compileExpressionList();
+            this.eat(')', 'value');
+        }
     }
 
     compileExpression() {
-
+        this.compileTerm();
+        while (/\+|\-|\*|\/|\&|\||\>|\<|\=/.exec(this.currentToken)) {
+            switch (this.currentToken.value) {
+                case '+'     : this.eat('+', 'value');break;
+                case '-'     : this.eat('-', 'value');break;
+                case '*'     : this.eat('*', 'value');break;
+                case '/'     : this.eat('/', 'value');break;
+                case '&'     : this.eat('&', 'value');break;
+                case '>'     : this.eat('>', 'value');break;
+                case '<'     : this.eat('<', 'value');break;
+                default      : this.eat('=', 'value');break;
+            }
+            this.compileTerm();
+        }
     }
 
     compileTerm() {
@@ -290,5 +353,8 @@ class JackAnalyzer {
     }
 
 }
+let global_table = {
+    'className' : ''
+};
 
 new JackAnalyzer('Square/Square.jack', 'Square/Square.xml2').outputFile();
