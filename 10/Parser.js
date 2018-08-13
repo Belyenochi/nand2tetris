@@ -89,36 +89,117 @@ class JackTokenizer {
 }
 
 class CompilationEngine {
-    constructor() {
-
+    constructor(tokenizer, outputFile) {
+        this.tokenizer = tokenizer;
+        this.currentToken = '';
+        this.fWrite = fs.createWriteStream(this.outputFile);
     }
 
-    compileFiles() {
+    init() {
+        this.currentToken = this.tokenizer.advance();
+        this.compileClass()
+    }
+
+    compileClass() {
+        this.eat('class', 'value');
+        this.eat('identifier', 'type');
+        this.eat('{', 'value');
+
+        while (this.currentToken.value === 'static' || this.currentToken.value === 'field') {
+            this.compileClassVarDec();
+        }
+
+        while (this.currentToken.value === 'constructor' || this.currentToken.value === 'function'
+            || this.currentToken.value === 'method') {
+            this.compileSubroutine();
+        }
+        this.eat('}', 'value');
+
 
     }
 
     compileClassVarDec() {
+        this.eat(this.currentToken.type, 'function');
+        this.compileType();
+        // deal with var name
+        this.eat('identifier', 'type');
+    }
 
+    compileType() {
+        switch (this.currentToken.value) {
+            case 'int'    : this.eat('keyword', 'type');break;
+            case 'char'   : this.eat('keyword', 'type');break;
+            case 'boolean': this.eat('keyword', 'type');break;
+            default       : this.eat('identifier', 'type');break;
+        }
     }
 
     compileSubroutine() {
+        this.eat(this.currentToken.type, 'function');
 
+        // deal with void or type
+        if (this.currentToken === 'void') {
+            this.eat('keyword', 'type')
+        } else {
+            this.compileType();
+        }
+
+        // deal with subroutineName
+        this.eat('identifier', 'type');
+        this.eat('(', 'value');
+        if (this.currentToken.value !== ')') {
+            this.compileParameterList();
+        }
+        this.eat(')', 'value');
+        this.compileSubroutineBody()
     }
 
     compileParameterList() {
+        while (this.currentToken !== ')') {
+            this.compileType();
+            // deal with varName
+            this.eat('identifier', 'type');
+        }
+    }
 
+    compileSubroutineBody() {
+        this.eat('{', 'value');
+        while (this.currentToken === 'var') {
+            this.compileVarDec();
+        }
+        this.compileStatements();
+        this.eat('}', 'value')
     }
 
     compileVarDec() {
-
+        this.eat('var', 'value');
+        this.compileType();
+        this.eat('identifier', 'type');
+        while (this.currentToken.value !== ';') {
+            this.eat(',', 'value');
+            this.eat('identifier', 'type');
+        }
+        this.eat(';', 'value');
     }
 
     compileStatements() {
-
+        while (this.currentToken.value === 'let' || this.currentToken.value === 'if'
+            || this.currentToken.value === 'while' || this.currentToken.value === 'do'
+            || this.currentToken.value === 'return') {
+            switch (this.currentToken.value) {
+                case 'let'    : this.compileLet();break;
+                case 'if'     : this.compileIf();break;
+                case 'while'  : this.compileWhile();break;
+                case 'do     ': this.compileDo();break;
+                default       : this.compileReturn();break;
+            }
+        }
     }
 
     compileDo() {
-
+        this.eat('do', 'value');
+        this.compileSubroutineCall();
+        this.eat(';', 'value');
     }
 
     compileLet() {
@@ -136,6 +217,9 @@ class CompilationEngine {
     compileIf() {
 
     }
+    compileSubroutineCall() {
+
+    }
 
     compileExpression() {
 
@@ -147,6 +231,15 @@ class CompilationEngine {
 
     compileExpressionList() {
 
+    }
+    eat(input, prop) {
+        if (input === this.currentToken[prop]) {
+            let data = `<${this.currentToken.type}> ${this.currentToken.value} </${this.currentToken.type}>`
+            this.fWrite.write(data + os.EOL);
+            this.currentToken = this.tokenizer.advance()
+        } else {
+            throw Error("Unexpected token: " + input)
+        }
     }
 }
 
