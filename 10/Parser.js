@@ -92,19 +92,22 @@ class CompilationEngine {
     constructor(tokenizer, outputFile) {
         this.tokenizer = tokenizer;
         this.currentToken = '';
-        this.fWrite = fs.createWriteStream(this.outputFile);
+        this.fWrite = fs.createWriteStream(outputFile);
     }
 
-    init() {
+    run() {
         this.currentToken = this.tokenizer.advance();
         this.compileClass()
     }
 
     compileClass() {
-        this.eat('class', 'value');
-        global_table.className = this.currentToken;
-        this.eat('identifier', 'type');
-        this.eat('{', 'value');
+        this.fWrite.write(`<class>` + os.EOL);
+        this.eatNonTerminal('class', 'keyword');
+        global_table.className = this.currentToken.value;
+
+
+        this.eatTerminal('identifier', 'type');
+        this.eatTerminal('{', 'value');
 
         while (this.currentToken.value === 'static' || this.currentToken.value === 'field') {
             this.compileClassVarDec();
@@ -114,76 +117,93 @@ class CompilationEngine {
             || this.currentToken.value === 'method') {
             this.compileSubroutine();
         }
-        this.eat('}', 'value');
-
+        this.eatTerminal('}', 'value');
+        this.fWrite.write(`</class>` + os.EOL);
 
     }
 
     compileClassVarDec() {
-        this.eat(this.currentToken.type, 'function');
+        this.fWrite.write(`<classVarDec>` + os.EOL);
+        this.eatTerminal('keyword', 'type');
         this.compileType();
-        // deal with var name
-        this.eat('identifier', 'type');
+        // deal with varName
+        this.eatTerminal('identifier', 'type');
+        while (this.currentToken.value === ',') {
+            this.eatTerminal(',', 'symbol');
+            this.eatTerminal('identifier', 'type');
+        }
+        this.eatTerminal(';', 'symbol');
+
+        this.fWrite.write(`</classVarDec>` + os.EOL);
     }
 
     compileType() {
         switch (this.currentToken.value) {
-            case 'int'    : this.eat('keyword', 'type');break;
-            case 'char'   : this.eat('keyword', 'type');break;
-            case 'boolean': this.eat('keyword', 'type');break;
-            default       : this.eat('identifier', 'type');break;
+            case 'int'    : this.eatTerminal('keyword', 'type');break;
+            case 'char'   : this.eatTerminal('keyword', 'type');break;
+            case 'boolean': this.eatTerminal('keyword', 'type');break;
+            default       : this.eatTerminal('identifier', 'type');break;
         }
     }
 
     compileSubroutine() {
-        this.eat(this.currentToken.type, 'function');
+        this.fWrite.write(`<subroutineDec>` + os.EOL);
+        this.eatTerminal(this.currentToken.type, 'keyword');
 
         // deal with void or type
         if (this.currentToken === 'void') {
-            this.eat('keyword', 'type')
+            this.eatTerminal('keyword', 'type')
         } else {
             this.compileType();
         }
 
         // deal with subroutineName
-        this.eat('identifier', 'type');
-        this.eat('(', 'value');
+        this.eatTerminal('identifier', 'type');
+        this.eatTerminal('(', 'value');
         if (this.currentToken.value !== ')') {
             this.compileParameterList();
         }
-        this.eat(')', 'value');
-        this.compileSubroutineBody()
+        this.eatTerminal(')', 'value');
+        this.compileSubroutineBody();
+        this.fWrite.write(`<subroutineDec>` + os.EOL);
     }
 
     compileParameterList() {
+        this.fWrite.write(`<parameterList>` + os.EOL);
         while (this.currentToken !== ')') {
             this.compileType();
             // deal with varName
-            this.eat('identifier', 'type');
+            this.eatTerminal('identifier', 'type');
         }
+        this.fWrite.write(`<parameterList>` + os.EOL);
     }
 
     compileSubroutineBody() {
-        this.eat('{', 'value');
+        this.fWrite.write(`<subroutineBody>` + os.EOL);
+        this.eatTerminal('{', 'value');
         while (this.currentToken === 'var') {
             this.compileVarDec();
         }
         this.compileStatements();
-        this.eat('}', 'value')
+        this.eatTerminal('}', 'value');
+        this.fWrite.write(`</subroutineBody>` + os.EOL);
     }
 
     compileVarDec() {
-        this.eat('var', 'value');
+        this.fWrite.write(`<varDec>` + os.EOL);
+        this.eatTerminal('var', 'value');
         this.compileType();
-        this.eat('identifier', 'type');
+        this.eatTerminal('identifier', 'type');
         while (this.currentToken.value !== ';') {
-            this.eat(',', 'value');
-            this.eat('identifier', 'type');
+            this.eatTerminal(',', 'value');
+            this.eatTerminal('identifier', 'type');
         }
-        this.eat(';', 'value');
+        this.eatTerminal(';', 'value');
+        this.fWrite.write(`</varDec>` + os.EOL);
     }
 
     compileStatements() {
+        this.fWrite.write(`<statements>` + os.EOL);
         while (this.currentToken.value === 'let' || this.currentToken.value === 'if'
             || this.currentToken.value === 'while' || this.currentToken.value === 'do'
             || this.currentToken.value === 'return') {
@@ -195,59 +215,70 @@ class CompilationEngine {
                 default       : this.compileReturn();break;
             }
         }
+        this.fWrite.write(`</statements>` + os.EOL);
     }
 
     compileDo() {
-        this.eat('do', 'value');
+        this.fWrite.write(`<doStatement>` + os.EOL);
+        this.eatTerminal('do', 'value');
         this.compileSubroutineCall();
-        this.eat(';', 'value');
+        this.eatTerminal(';', 'value');
+        this.fWrite.write(`</doStatement>` + os.EOL);
     }
 
     compileLet() {
-        this.eat('let', 'value');
-        this.eat('identifier', 'type');
+        this.fWrite.write(`<letStatement>` + os.EOL);
+        this.eatTerminal('let', 'value');
+        this.eatTerminal('identifier', 'type');
         if (this.currentToken === '[') {
-            this.eat('[', 'value');
+            this.eatTerminal('[', 'value');
             this.compileExpression();
-            this.eat(']', 'value');
+            this.eatTerminal(']', 'value');
         }
-        this.eat('=', 'value');
+        this.eatTerminal('=', 'value');
         this.compileExpression();
-        this.eat(';', 'value');
+        this.eatTerminal(';', 'value');
+        this.fWrite.write(`</letStatement>` + os.EOL);
     }
 
     compileWhile() {
-        this.eat('while', 'value');
-        this.eat('(', 'value');
+        this.fWrite.write(`<whileStatement>` + os.EOL);
+        this.eatTerminal('while', 'value');
+        this.eatTerminal('(', 'value');
         this.compileExpression();
-        this.eat(')', 'value');
-        this.eat('{', 'value');
+        this.eatTerminal(')', 'value');
+        this.eatTerminal('{', 'value');
         this.compileStatements();
-        this.eat('}', 'value');
+        this.eatTerminal('}', 'value');
+        this.fWrite.write(`</whileStatement>` + os.EOL);
     }
 
     compileReturn() {
-        this.eat('return', 'value');
+        this.fWrite.write(`<returnStatement>` + os.EOL);
+        this.eatTerminal('return', 'value');
         if (this.currentToken.value !== ';') {
             this.compileExpression();
         }
-        this.eat(';', 'value');
+        this.eatTerminal(';', 'value');
+        this.fWrite.write(`</returnStatement>` + os.EOL);
     }
 
     compileIf() {
-        this.eat('if', 'value');
-        this.eat('(', 'value');
+        this.fWrite.write(`<ifStatement>` + os.EOL);
+        this.eatTerminal('if', 'value');
+        this.eatTerminal('(', 'value');
         this.compileExpression();
-        this.eat(')', 'value');
-        this.eat('{', 'value');
+        this.eatTerminal(')', 'value');
+        this.eatTerminal('{', 'value');
         this.compileStatements();
-        this.eat('}', 'value');
+        this.eatTerminal('}', 'value');
         if (this.currentToken === 'else') {
-            this.eat('else', 'value');
-            this.eat('{', 'value');
+            this.eatTerminal('else', 'value');
+            this.eatTerminal('{', 'value');
             this.compileStatements();
-            this.eat('}', 'value');
+            this.eatTerminal('}', 'value');
         }
+        this.fWrite.write(`</ifStatement>` + os.EOL);
     }
     compileSubroutineCall() {
         let second = this.tokenizer.advance();
@@ -255,23 +286,24 @@ class CompilationEngine {
             this.tokenizer.input = second + ' ' + this.tokenizer.input;
 
             if (this.currentToken === global_table.className) {
-                this.eat('identifier', 'type'); // deal with className
+                this.eatTerminal('identifier', 'type'); // deal with className
             } else {
-                this.eat('identifier', 'type'); // deal with varName
+                this.eatTerminal('identifier', 'type'); // deal with varName
             }
-            this.eat('.', 'value');
-            this.eat('(', 'value');
+            this.eatTerminal('.', 'value');
+            this.eatTerminal('(', 'value');
             this.compileExpressionList();
-            this.eat(')', 'value');
+            this.eatTerminal(')', 'value');
         } else {
-            this.eat('identifier', 'type'); // deal with subroutineName
-            this.eat('(', 'value');
+            this.eatTerminal('identifier', 'type'); // deal with subroutineName
+            this.eatTerminal('(', 'value');
             this.compileExpressionList();
-            this.eat(')', 'value');
+            this.eatTerminal(')', 'value');
         }
     }
 
     compileExpression() {
+        this.fWrite.write(`<expression>` + os.EOL);
         this.compileTerm();
         while (/\+|\-|\*|\/|\&|\||\>|\<|\=/.exec(this.currentToken)) {
             switch (this.currentToken.value) {
@@ -286,19 +318,67 @@ class CompilationEngine {
             }
             this.compileTerm();
         }
+        this.fWrite.write(`</expression>` + os.EOL);
     }
 
     compileTerm() {
+        this.fWrite.write(`<term>` + os.EOL);
+        if (this.currentToken.type === 'stringConstant') {
+            this.eat('stringConstant', 'type')
+        } else if (this.currentToken.type === 'integerConstant') {
+            this.eat('integerConstant', 'type')
+        } else if (this.currentToken.type === 'keyword') {
+            this.eat('keyword', 'type')
+        } else if (this.currentToken.value === '(') {
+            this.eat('(', 'value');
+            this.compileExpression();
+            this.eat(')', 'value');
+        } else if (this.currentToken.value === '_' || this.currentToken.value === "~") {
+            this.eat('symbol', 'type');
+            this.compileTerm();
+        } else {
+            let second = this.tokenizer.advance();
 
+            this.tokenizer.input = second + ' ' + this.tokenizer.input;
+            if (second.value === '(' || second.value === '.') {
+                this.compileSubroutineCall();
+            } else if (second.value === '[') {
+                this.eat('identifier', 'type');
+                this.eat('[', 'type');
+                this.compileExpression();
+                this.eat(']', 'type');
+            } else {
+                this.eat('identifier', 'type');
+            }
+        }
+        this.fWrite.write(`</term>` + os.EOL);
     }
 
     compileExpressionList() {
-
+        this.fWrite.write(`</expressionList>` + os.EOL);
+        if (this.currentToken.type === 'identifier' || this.currentToken.type === 'stringConstant'
+            || this.currentToken.type === 'integerConstant' || this.currentToken.type === 'keyword'
+            || this.currentToken.value === ')' || this.currentToken.value === '~'
+            || this.currentToken.value === '_') {
+            this.compileExpression();
+            while (this.currentToken.value === ',') {
+                this.compileExpression();
+            }
+        }
+        this.fWrite.write(`</expressionList>` + os.EOL);
     }
-    eat(input, prop) {
+
+    eatTerminal(input, prop) {
         if (input === this.currentToken[prop]) {
             let data = `<${this.currentToken.type}> ${this.currentToken.value} </${this.currentToken.type}>`
             this.fWrite.write(data + os.EOL);
+            this.currentToken = this.tokenizer.advance()
+        } else {
+            throw Error("Unexpected token: " + input)
+        }
+    }
+    eatNonTerminal (value, type) {
+        if (value === this.currentToken.value && type === this.currentToken.type) {
             this.currentToken = this.tokenizer.advance()
         } else {
             throw Error("Unexpected token: " + input)
@@ -331,25 +411,30 @@ class JackAnalyzer {
         }).join("");
     }
 
+    // outputFile() {
+    //     let jackToken = new JackTokenizer(this.input);
+    //     let fWrite = fs.createWriteStream(this.output);
+    //
+    //     while (jackToken.hasMoreTokens()) {
+    //         jackToken.advance();
+    //     }
+    //
+    //     fWrite.write("<tokens>" + os.EOL);
+    //     jackToken.tokens.forEach((data)=> {
+    //         if(jackToken.decode[data.value] && jackToken.decode.hasOwnProperty(data.value)) {
+    //             data = `<${data.type}> ${jackToken.decode[data.value]} </${data.type}>`
+    //         } else {
+    //             data = `<${data.type}> ${data.value} </${data.type}>`
+    //         }
+    //
+    //         fWrite.write(data + os.EOL);
+    //     });
+    //     fWrite.write("</tokens>" + os.EOL);
+    // }
     outputFile() {
-        let jackToken = new JackTokenizer(this.input);
-        let fWrite = fs.createWriteStream(this.output);
+        let compEngine = new CompilationEngine(new JackTokenizer(this.input), this.output);
 
-        while (jackToken.hasMoreTokens()) {
-            jackToken.advance();
-        }
-
-        fWrite.write("<tokens>" + os.EOL);
-        jackToken.tokens.forEach((data)=> {
-            if(jackToken.decode[data.value] && jackToken.decode.hasOwnProperty(data.value)) {
-                data = `<${data.type}> ${jackToken.decode[data.value]} </${data.type}>`
-            } else {
-                data = `<${data.type}> ${data.value} </${data.type}>`
-            }
-
-            fWrite.write(data + os.EOL);
-        });
-        fWrite.write("</tokens>" + os.EOL);
+        compEngine.run();
     }
 
 }
@@ -357,4 +442,4 @@ let global_table = {
     'className' : ''
 };
 
-new JackAnalyzer('Square/Square.jack', 'Square/Square.xml2').outputFile();
+new JackAnalyzer('ArrayTest/Main.jack', 'ArrayTest/Main.xml2').outputFile();
