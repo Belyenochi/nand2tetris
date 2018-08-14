@@ -326,7 +326,7 @@ class CompilationEngine {
             this.eatTerminal('(', 'value');
             this.compileExpression();
             this.eatTerminal(')', 'value');
-        } else if (this.currentToken.value === '_' || this.currentToken.value === "~") {
+        } else if (this.currentToken.value === '-' || this.currentToken.value === "~") {
             this.eatTerminal('symbol', 'type');
             this.compileTerm();
         } else {
@@ -352,7 +352,7 @@ class CompilationEngine {
         if (this.currentToken.type === 'identifier' || this.currentToken.type === 'stringConstant'
             || this.currentToken.type === 'integerConstant' || this.currentToken.type === 'keyword'
             || this.currentToken.value === '(' || this.currentToken.value === '~'
-            || this.currentToken.value === '_') {
+            || this.currentToken.value === '-') {
             this.compileExpression();
             while (this.currentToken.value === ',') {
                 this.eatTerminal(',', 'value');
@@ -423,4 +423,4 @@ global_decode = {
 };
 
 
-new JackAnalyzer('Square/Main.jack', 'Square/Main.xml2').outputFile();
+new JackAnalyzer('Square/SquareGame.jack', 'Square/SquareGame.xml2').outputFile();
