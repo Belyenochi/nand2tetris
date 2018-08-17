@@ -97,8 +97,8 @@ class CompilationEngine {
         // this.fWrite.write(`<class>` + os.EOL);
         this.eatTerminal('class', 'value');
 
-        this.Symbol_Table.define(this.currentToken.value, 'class', '');
         this.Symbol_Table.define('class', this.currentToken.value, ''); // define class name use to subroutine named
+        //this.Symbol_Table.define(this.currentToken.value, 'class', '');
 
         this.eatTerminal('identifier', 'type');
         this.eatTerminal('{', 'value');
@@ -317,9 +317,12 @@ class CompilationEngine {
         variableName = this.currentToken.value;
         this.eatTerminal('identifier', 'type');
         if (this.currentToken.value === '[') {
+            this.mapToMemory(env.kindOf(variableName),
+                env.indexOf(variableName), 'push');
             this.eatTerminal('[', 'value');
             this.compileExpression(env);
             this.eatTerminal(']', 'value');
+            this.vmWriter.writeArithmetic('ADD');
         }
         this.eatTerminal('=', 'value');
         this.compileExpression(env);
@@ -334,21 +337,25 @@ class CompilationEngine {
 
     compileWhile(env) {
         // this.fWrite.write(`<whileStatement>` + os.EOL);
-        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_WHILE_' + this.Symbol_Table.labelId++);
+        let labelId1 = this.Symbol_Table.labelId;
+        this.Symbol_Table.labelId++;
+        let labelId2 = this.Symbol_Table.labelId;
+        this.Symbol_Table.labelId++;
+        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_WHILE_' + labelId1);
 
         this.eatTerminal('while', 'value');
         this.eatTerminal('(', 'value');
         this.compileExpression(env);
         this.eatTerminal(')', 'value');
         this.vmWriter.writeArithmetic('NOT');
-        this.vmWriter.writeIf(this.Symbol_Table.kindOf('class') + '_WHILE_' + this.Symbol_Table.labelId);
+        this.vmWriter.writeIf(this.Symbol_Table.kindOf('class') + '_WHILE_' + labelId2);
 
 
         this.eatTerminal('{', 'value');
         this.compileStatements(env);
         this.eatTerminal('}', 'value');
-        this.vmWriter.writeGoto(this.Symbol_Table.kindOf('class') + '_WHILE_' + (this.Symbol_Table.labelId - 1));
-        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_WHILE_' + this.Symbol_Table.labelId);
+        this.vmWriter.writeGoto(this.Symbol_Table.kindOf('class') + '_WHILE_' + labelId1);
+        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_WHILE_' + labelId2);
         // this.fWrite.write(`</whileStatement>` + os.EOL);
     }
 
@@ -369,13 +376,15 @@ class CompilationEngine {
         this.eatTerminal('(', 'value');
         this.compileExpression(env);
         this.eatTerminal(')', 'value');
-        this.vmWriter.writeIf(this.Symbol_Table.kindOf('class') + '_TRUE_IF_' + this.Symbol_Table.labelId++);
-        this.vmWriter.writeGoto(this.Symbol_Table.kindOf('class') + '_FALSE_IF_' + this.Symbol_Table.labelId++);
-        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_TRUE_IF_' + (this.Symbol_Table.labelId - 2));
+        let labelId = this.Symbol_Table.labelId;
+        this.Symbol_Table.labelId++;
+        this.vmWriter.writeIf(this.Symbol_Table.kindOf('class') + '_TRUE_IF_' + labelId);
+        this.vmWriter.writeGoto(this.Symbol_Table.kindOf('class') + '_FALSE_IF_' + labelId);
+        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_TRUE_IF_' + labelId);
         this.eatTerminal('{', 'value');
         this.compileStatements(env);
         this.eatTerminal('}', 'value');
-        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_FALSE_IF_' + (this.Symbol_Table.labelId - 1));
+        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_FALSE_IF_' + labelId);
         if (this.currentToken.value === 'else') {
             this.eatTerminal('else', 'value');
             this.eatTerminal('{', 'value');
@@ -819,4 +828,4 @@ global_decode = {
     // Add more
 };
 
-new JackCompiler('Average/Main.jack', 'Average/Main.vm').outputFile(new SymbolTable());
+new JackCompiler('ConvertToBin/Main.jack', 'ConvertToBin/Main.vm').outputFile(new SymbolTable());
