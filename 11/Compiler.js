@@ -147,16 +147,24 @@ class CompilationEngine {
 
     compileType() {
         switch (this.currentToken.value) {
-            case 'int'    : this.eatTerminal('keyword', 'type');break;
-            case 'char'   : this.eatTerminal('keyword', 'type');break;
-            case 'boolean': this.eatTerminal('keyword', 'type');break;
-            default       : this.eatTerminal('identifier', 'type');break;
+            case 'int'    :
+                this.eatTerminal('keyword', 'type');
+                break;
+            case 'char'   :
+                this.eatTerminal('keyword', 'type');
+                break;
+            case 'boolean':
+                this.eatTerminal('keyword', 'type');
+                break;
+            default       :
+                this.eatTerminal('identifier', 'type');
+                break;
         }
     }
 
     compileSubroutine() {
         // this.fWrite.write(`<subroutineDec>` + os.EOL);
-        let type, env = this.Symbol_Table.startSubroutine(),kind;
+        let type, env = this.Symbol_Table.startSubroutine(), kind;
 
         kind = this.currentToken.value; // use to switch method constructor function
 
@@ -183,17 +191,9 @@ class CompilationEngine {
         this.compileParameterList(env);
 
         this.eatTerminal(')', 'value');
-        this.vmWriter.writeFunction(this.Symbol_Table.kindOf('class') + subroutineName, env.indexOf('var'));
-        if (kind === 'constructor') {
-            this.vmWriter.writePush('CONSTANT', env.indexOf('argument'));
-            this.vmWriter.writeCall('Memory.alloc', 1);
-            this.vmWriter.writePop('POINTER', 0);
-        } else if (kind === 'method') {
-            this.vmWriter.writePush('ARG', 0);
-            this.vmWriter.writePop('POINTER', 0);
-        }
 
-        this.compileSubroutineBody(env);
+
+        this.compileSubroutineBody(env, subroutineName, kind);
         // this.fWrite.write(`</subroutineDec>` + os.EOL);
 
         if (type === 'void') {
@@ -229,13 +229,24 @@ class CompilationEngine {
         // this.fWrite.write(`</parameterList>` + os.EOL);
     }
 
-    compileSubroutineBody(env) {
+    compileSubroutineBody(env, subroutineName, kind) {
         // this.fWrite.write(`<subroutineBody>` + os.EOL);
         this.eatTerminal('{', 'value');
         while (this.currentToken.value === 'var') {
             this.compileVarDec(env);
         }
-        this.compileStatements();
+
+        this.vmWriter.writeFunction(this.Symbol_Table.kindOf('class') + '.' + subroutineName, env.varCount('var'));
+        if (kind === 'constructor') {
+            this.vmWriter.writePush('CONSTANT', this.Symbol_Table.varCount('field'));
+            this.vmWriter.writeCall('Memory.alloc', 1);
+            this.vmWriter.writePop('POINTER', 0);
+        } else if (kind === 'method') {
+            this.vmWriter.writePush('ARG', 0);
+            this.vmWriter.writePop('POINTER', 0);
+        }
+
+        this.compileStatements(env);
         this.eatTerminal('}', 'value');
         // this.fWrite.write(`</subroutineBody>` + os.EOL);
     }
@@ -258,36 +269,47 @@ class CompilationEngine {
         this.eatTerminal(';', 'value');
         // this.fWrite.write(`</varDec>` + os.EOL);
 
-        for (let i = 0; i < env.indexOf('var'); i ++) {
-            this.vmWriter.writePush('LOCAL', i);
-        }
+        // for (let i = 0; i < env.varCount('var'); i++) {
+        //     this.vmWriter.writePush('LOCAL', i);
+        // }
     }
 
-    compileStatements() {
+    compileStatements(env) {
         // this.fWrite.write(`<statements>` + os.EOL);
         while (this.currentToken.value === 'let' || this.currentToken.value === 'if'
         || this.currentToken.value === 'while' || this.currentToken.value === 'do'
         || this.currentToken.value === 'return') {
             switch (this.currentToken.value) {
-                case 'let'    : this.compileLet();break;
-                case 'if'     : this.compileIf();break;
-                case 'while'  : this.compileWhile();break;
-                case 'do'     : this.compileDo();break;
-                default       : this.compileReturn();break;
+                case 'let'    :
+                    this.compileLet(env);
+                    break;
+                case 'if'     :
+                    this.compileIf(env);
+                    break;
+                case 'while'  :
+                    this.compileWhile(env);
+                    break;
+                case 'do'     :
+                    this.compileDo(env);
+                    break;
+                default       :
+                    this.compileReturn(env);
+                    break;
             }
         }
         // this.fWrite.write(`</statements>` + os.EOL);
     }
 
-    compileDo() {
+    compileDo(env) {
         // this.fWrite.write(`<doStatement>` + os.EOL);
         this.eatTerminal('do', 'value');
-        this.compileSubroutineCall();
+        this.compileSubroutineCall(env);
+        this.vmWriter.writePop('TEMP', 0);
         this.eatTerminal(';', 'value');
         // this.fWrite.write(`</doStatement>` + os.EOL);
     }
 
-    compileLet() {
+    compileLet(env) {
         let variableName;
 
         // this.fWrite.write(`<letStatement>` + os.EOL);
@@ -296,118 +318,174 @@ class CompilationEngine {
         this.eatTerminal('identifier', 'type');
         if (this.currentToken.value === '[') {
             this.eatTerminal('[', 'value');
-            this.compileExpression();
+            this.compileExpression(env);
             this.eatTerminal(']', 'value');
         }
         this.eatTerminal('=', 'value');
-        this.compileExpression();
+        this.compileExpression(env);
         this.eatTerminal(';', 'value');
 
-        let kind = this.Symbol_Table.kindOf(variableName);
-        let index = this.Symbol_Table.indexOf(variableName);
+        let kind = env.kindOf(variableName);
+        let index = env.indexOf(variableName);
         this.mapToMemory(kind, index, 'pop');
 
         // this.fWrite.write(`</letStatement>` + os.EOL);
     }
 
-    compileWhile() {
+    compileWhile(env) {
         // this.fWrite.write(`<whileStatement>` + os.EOL);
-        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + this.Symbol_Table.labelId++);
+        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_WHILE_' + this.Symbol_Table.labelId++);
 
         this.eatTerminal('while', 'value');
         this.eatTerminal('(', 'value');
-        this.compileExpression();
+        this.compileExpression(env);
         this.eatTerminal(')', 'value');
-        this.vmWriter.writeIf(this.Symbol_Table.kindOf('class') + (this.Symbol_Table.labelId + 1));
+        this.vmWriter.writeArithmetic('NOT');
+        this.vmWriter.writeIf(this.Symbol_Table.kindOf('class') + '_WHILE_' + this.Symbol_Table.labelId);
+
 
         this.eatTerminal('{', 'value');
-        this.compileStatements();
+        this.compileStatements(env);
         this.eatTerminal('}', 'value');
-        this.vmWriter.writeIf(this.Symbol_Table.kindOf('class') + (this.Symbol_Table.labelId - 1));
-        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + this.Symbol_Table.labelId);
+        this.vmWriter.writeGoto(this.Symbol_Table.kindOf('class') + '_WHILE_' + (this.Symbol_Table.labelId - 1));
+        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_WHILE_' + this.Symbol_Table.labelId);
         // this.fWrite.write(`</whileStatement>` + os.EOL);
     }
 
-    compileReturn() {
+    compileReturn(env) {
         // this.fWrite.write(`<returnStatement>` + os.EOL);
         this.eatTerminal('return', 'value');
         if (this.currentToken.value !== ';') {
-            this.compileExpression();
+            this.compileExpression(env);
         }
         this.eatTerminal(';', 'value');
 
         // this.fWrite.write(`</returnStatement>` + os.EOL);
     }
 
-    compileIf() {
+    compileIf(env) {
         // this.fWrite.write(`<ifStatement>` + os.EOL);
         this.eatTerminal('if', 'value');
         this.eatTerminal('(', 'value');
-        this.compileExpression();
+        this.compileExpression(env);
         this.eatTerminal(')', 'value');
-        this.vmWriter.writeIf(this.Symbol_Table.kindOf('class') + this.Symbol_Table.labelId++);
-
+        this.vmWriter.writeIf(this.Symbol_Table.kindOf('class') + '_TRUE_IF_' + this.Symbol_Table.labelId++);
+        this.vmWriter.writeGoto(this.Symbol_Table.kindOf('class') + '_FALSE_IF_' + this.Symbol_Table.labelId++);
+        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_TRUE_IF_' + (this.Symbol_Table.labelId - 2));
         this.eatTerminal('{', 'value');
-        this.compileStatements();
+        this.compileStatements(env);
         this.eatTerminal('}', 'value');
-        this.vmWriter.writeGoto(this.Symbol_Table.kindOf('class') + this.Symbol_Table.labelId++);
-        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + this.Symbol_Table.labelId - 2);
+        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_FALSE_IF_' + (this.Symbol_Table.labelId - 1));
         if (this.currentToken.value === 'else') {
             this.eatTerminal('else', 'value');
             this.eatTerminal('{', 'value');
-            this.compileStatements();
+            this.compileStatements(env);
             this.eatTerminal('}', 'value');
         }
-        this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + this.Symbol_Table.labelId - 1);
+
         // this.fWrite.write(`</ifStatement>` + os.EOL);
     }
 
-    compileSubroutineCall() {
-        let second = this.tokens.shift();
+    compileSubroutineCall(env) {
+        let second = this.tokens.shift(), argus = '',subroutineName = '',varName = '';
         this.tokens.unshift(second);
         if (second.value === '.') {
-            this.eatTerminal('identifier', 'type'); // deal with className and varName
-            this.eatTerminal('.', 'value');
-            this.eatTerminal('identifier', 'type');
-            this.eatTerminal('(', 'value');
-            this.compileExpressionList();
-            this.eatTerminal(')', 'value');
+            if (/^[A-Z]/.exec(this.currentToken.value)) { // Case name with uppercase and lowercase
+                // deal with className
+                subroutineName += this.currentToken.value;
+                this.eatTerminal('identifier', 'type'); // deal with className
+                subroutineName += this.currentToken.value;
+                this.eatTerminal('.', 'value');
+                subroutineName += this.currentToken.value;
+                this.eatTerminal('identifier', 'type');
+                this.eatTerminal('(', 'value');
+                argus = this.compileExpressionList(env);
+                this.eatTerminal(')', 'value');
+
+                this.vmWriter.writeCall(subroutineName, argus);
+            } else {
+                // deal with varName
+
+                varName += this.currentToken.value;
+                this.eatTerminal('identifier', 'type'); // deal with varName
+                subroutineName += this.currentToken.value;
+                this.eatTerminal('.', 'value');
+                subroutineName += this.currentToken.value;
+                this.eatTerminal('identifier', 'type');
+                this.eatTerminal('(', 'value');
+                argus = this.compileExpressionList(env);
+                this.eatTerminal(')', 'value');
+                if (env[varName]) {
+                    this.mapToMemory(env.kindOf(varName),env.indexOf(varName), 'push');
+                }
+
+                this.vmWriter.writeCall(env.typeOf(varName) + subroutineName, argus + 1);
+            }
+
         } else {
+            subroutineName += this.currentToken.value;
+
             this.eatTerminal('identifier', 'type'); // deal with subroutineName
             this.eatTerminal('(', 'value');
-            this.compileExpressionList();
+            argus = this.compileExpressionList(env);
             this.eatTerminal(')', 'value');
+
+            this.vmWriter.writePush('POINTER',0);
+            this.vmWriter.writeCall(this.Symbol_Table.kindOf('class') + '.' + subroutineName, argus + 1);
         }
     }
 
-    compileExpression() {
+    compileExpression(env) {
         // this.fWrite.write(`<expression>` + os.EOL);
-        this.compileTerm();
+        let operator = '';
+
+        this.compileTerm(env);
 
         while (/\+|\-|\*|\/|\&|\||\>|\<|\=/.exec(this.currentToken.value)) {
-            switch (this.currentToken.value) {
-                case '+'     : this.eatTerminal('+', 'value');this.vmWriter.writeArithmetic("ADD");break;
-                case '-'     : this.eatTerminal('-', 'value');this.vmWriter.writeArithmetic("SUB");break;
-                case '*'     : this.eatTerminal('*', 'value');this.vmWriter.writeFunction("Math.multiply", 2);break;
-                case '/'     : this.eatTerminal('/', 'value');this.vmWriter.writeFunction("Math.divide", 2);break;
-                case '&'     : this.eatTerminal('&', 'value');this.vmWriter.writeArithmetic("AND");break;
-                case '>'     : this.eatTerminal('>', 'value');this.vmWriter.writeArithmetic("GT");break;
-                case '<'     : this.eatTerminal('<', 'value');this.vmWriter.writeArithmetic("LT");break;
-                case '|'     : this.eatTerminal('|', 'value');this.vmWriter.writeArithmetic("OR");break;
-                default      : this.eatTerminal('=', 'value');this.vmWriter.writeArithmetic("EQ");break;
+            operator = this.currentToken.value;
+            this.eatTerminal(operator, 'value');
+            this.compileTerm(env);
+
+            switch (operator) {
+                case '+'     :
+                    this.vmWriter.writeArithmetic("ADD");
+                    break;
+                case '-'     :
+                    this.vmWriter.writeArithmetic("SUB");
+                    break;
+                case '*'     :
+                    this.vmWriter.writeFunction("Math.multiply", 2);
+                    break;
+                case '/'     :
+                    this.vmWriter.writeFunction("Math.divide", 2);
+                    break;
+                case '&'     :
+                    this.vmWriter.writeArithmetic("AND");
+                    break;
+                case '>'     :
+                    this.vmWriter.writeArithmetic("GT");
+                    break;
+                case '<'     :
+                    this.vmWriter.writeArithmetic("LT");
+                    break;
+                case '|'     :
+                    this.vmWriter.writeArithmetic("OR");
+                    break;
+                default      :
+                    this.vmWriter.writeArithmetic("EQ");
+                    break;
             }
-            this.compileTerm();
         }
         // this.fWrite.write(`</expression>` + os.EOL);
     }
 
-    compileTerm() {
+    compileTerm(env) {
         // this.fWrite.write(`<term>` + os.EOL);
         if (this.currentToken.type === 'stringConstant') {
             let length = this.currentToken.value.length;
             this.vmWriter.writePush('CONSTANT', length);
             this.vmWriter.writeCall('String.new', 1);
-            this.currentToken.value.forEach((item)=>{
+            this.currentToken.value.split('').forEach((item) => {
                 this.vmWriter.writePush('CONSTANT', item.charCodeAt(0));
                 this.vmWriter.writeCall('String.appendChar', 2)
             });
@@ -419,43 +497,52 @@ class CompilationEngine {
             this.eatTerminal('integerConstant', 'type')
         } else if (this.currentToken.type === 'keyword') {
 
-            this.mapToMemory(this.Symbol_Table.kindOf(this.currentToken.value),
-                this.Symbol_Table.indexOf(this.currentToken.value), 'push');
-
+            if (this.currentToken.value === 'this') {
+                this.vmWriter.writePush('POINTER', 0);
+            } else if (this.currentToken.value === 'false' || this.currentToken.value === 'null'){
+                this.vmWriter.writePush('CONSTANT', 0)
+            } else if (this.currentToken.value === 'true'){
+                this.vmWriter.writePush('CONSTANT', 1);
+                this.vmWriter.writeArithmetic('NEG');
+            } else {
+                this.mapToMemory(env.kindOf(this.currentToken.value),
+                    env.indexOf(this.currentToken.value), 'push');
+            }
 
             this.eatTerminal('keyword', 'type')
         } else if (this.currentToken.value === '(') {
             this.eatTerminal('(', 'value');
-            this.compileExpression();
+            this.compileExpression(env);
             this.eatTerminal(')', 'value');
         } else if (this.currentToken.value === '-' || this.currentToken.value === "~") {
-            if (this.currentToken.value === '-') {
+            let operator = this.currentToken.value;
+
+            this.eatTerminal('symbol', 'type');
+            this.compileTerm(env);
+            if (operator === '-') {
                 this.vmWriter.writeArithmetic('NEG')
             } else {
                 this.vmWriter.writeArithmetic('NOT')
             }
-
-            this.eatTerminal('symbol', 'type');
-            this.compileTerm();
         } else {
             let second = this.tokens.shift();
 
             this.tokens.unshift(second);
             if (second.value === '(' || second.value === '.') {
-                this.compileSubroutineCall();
+                this.compileSubroutineCall(env);
             } else if (second.value === '[') {
-                this.mapToMemory(this.Symbol_Table.kindOf(this.currentToken.value),
-                    this.Symbol_Table.indexOf(this.currentToken.value), 'push');
+                this.mapToMemory(env.kindOf(this.currentToken.value),
+                    env.indexOf(this.currentToken.value), 'push');
 
                 this.eatTerminal('identifier', 'type');
                 this.eatTerminal('[', 'value');
-                this.compileExpression();
+                this.compileExpression(env);
                 this.eatTerminal(']', 'value');
 
                 this.vmWriter.writeArithmetic('ADD');
             } else {
-                this.mapToMemory(this.Symbol_Table.kindOf(this.currentToken.value),
-                    this.Symbol_Table.indexOf(this.currentToken.value), 'push');
+                this.mapToMemory(env.kindOf(this.currentToken.value),
+                    env.indexOf(this.currentToken.value), 'push');
 
                 this.eatTerminal('identifier', 'type');
             }
@@ -463,18 +550,22 @@ class CompilationEngine {
         // this.fWrite.write(`</term>` + os.EOL);
     }
 
-    compileExpressionList() {
+    compileExpressionList(env) {
+        let argus = 0;
         // this.fWrite.write(`<expressionList>` + os.EOL);
         if (this.currentToken.type === 'identifier' || this.currentToken.type === 'stringConstant'
             || this.currentToken.type === 'integerConstant' || this.currentToken.type === 'keyword'
             || this.currentToken.value === '(' || this.currentToken.value === '~'
             || this.currentToken.value === '-') {
-            this.compileExpression();
+            this.compileExpression(env);
+            argus++;
             while (this.currentToken.value === ',') {
                 this.eatTerminal(',', 'value');
-                this.compileExpression();
+                this.compileExpression(env);
+                argus++;
             }
         }
+        return argus;
         // this.fWrite.write(`</expressionList>` + os.EOL);
     }
 
@@ -521,10 +612,11 @@ class CompilationEngine {
                 case 'static':
                     this.vmWriter.writePop('STATIC', index);
                     break;
+            }
         }
     }
-}
 
+}
 class JackCompiler {
     constructor(inputFile, outputFile) {
         this.input = this.clearData(this.readFileStream(inputFile));
@@ -573,7 +665,12 @@ class SymbolTable {
     }
 
     startSubroutine() {
-        let env = new SymbolTable();
+        let env = Object.create(this);
+        env.static   = 0;
+        env.field    = 0;
+        env.argument = 0;
+        env.var      = 0;
+        env.labelId  = 0;
 
         return env;
     }
@@ -593,24 +690,24 @@ class SymbolTable {
     }
 
     kindOf(name) {
-        if (!this[name].kind) {
-            throw new Error("undefined SymbolTable kind: " + kind)
+        if (this[name]['kind'] === undefined) {
+            throw new Error("undefined SymbolTable kind: " + name)
         }
 
         return this[name].kind;
     }
 
-    typeOf() {
-        if (!this[name].type) {
-            throw new Error("undefined SymbolTable type: " + type)
+    typeOf(name) {
+        if (this[name]['type'] === undefined) {
+            throw new Error("undefined SymbolTable type: " + name)
         }
 
         return this[name].type;
     }
 
-    indexOf() {
-        if (!this[name].index) {
-            throw new Error("undefined SymbolTable index: " + index)
+    indexOf(name) {
+        if (this[name]['index'] === undefined) {
+            throw new Error("undefined SymbolTable index: " + name)
         }
 
         return this[name].index;
@@ -722,4 +819,4 @@ global_decode = {
     // Add more
 };
 
-new JackCompiler('Square/SquareGame.jack', 'Square/SquareGame.xml2').outputFile(new SymbolTable());
+new JackCompiler('Average/Main.jack', 'Average/Main.vm').outputFile(new SymbolTable());
