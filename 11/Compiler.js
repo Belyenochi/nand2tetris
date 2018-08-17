@@ -195,12 +195,6 @@ class CompilationEngine {
 
         this.compileSubroutineBody(env, subroutineName, kind);
         // this.fWrite.write(`</subroutineDec>` + os.EOL);
-
-        if (type === 'void') {
-            this.vmWriter.writePush('CONSTANT', 0);
-        }
-
-        this.vmWriter.writeReturn();
     }
 
     compileParameterList(env) {
@@ -246,7 +240,7 @@ class CompilationEngine {
             this.vmWriter.writePop('POINTER', 0);
         }
 
-        this.compileStatements(env);
+        this.compileStatements(env, subroutineName);
         this.eatTerminal('}', 'value');
         // this.fWrite.write(`</subroutineBody>` + os.EOL);
     }
@@ -274,33 +268,33 @@ class CompilationEngine {
         // }
     }
 
-    compileStatements(env) {
+    compileStatements(env, subroutineName) {
         // this.fWrite.write(`<statements>` + os.EOL);
         while (this.currentToken.value === 'let' || this.currentToken.value === 'if'
         || this.currentToken.value === 'while' || this.currentToken.value === 'do'
         || this.currentToken.value === 'return') {
             switch (this.currentToken.value) {
                 case 'let'    :
-                    this.compileLet(env);
+                    this.compileLet(env, subroutineName);
                     break;
                 case 'if'     :
-                    this.compileIf(env);
+                    this.compileIf(env, subroutineName);
                     break;
                 case 'while'  :
-                    this.compileWhile(env);
+                    this.compileWhile(env, subroutineName);
                     break;
                 case 'do'     :
-                    this.compileDo(env);
+                    this.compileDo(env, subroutineName);
                     break;
                 default       :
-                    this.compileReturn(env);
+                    this.compileReturn(env, subroutineName);
                     break;
             }
         }
         // this.fWrite.write(`</statements>` + os.EOL);
     }
 
-    compileDo(env) {
+    compileDo(env, subroutineName) {
         // this.fWrite.write(`<doStatement>` + os.EOL);
         this.eatTerminal('do', 'value');
         this.compileSubroutineCall(env);
@@ -309,7 +303,7 @@ class CompilationEngine {
         // this.fWrite.write(`</doStatement>` + os.EOL);
     }
 
-    compileLet(env) {
+    compileLet(env, subroutineName) {
         let variableName;
 
         // this.fWrite.write(`<letStatement>` + os.EOL);
@@ -335,7 +329,7 @@ class CompilationEngine {
         // this.fWrite.write(`</letStatement>` + os.EOL);
     }
 
-    compileWhile(env) {
+    compileWhile(env, subroutineName) {
         // this.fWrite.write(`<whileStatement>` + os.EOL);
         let labelId1 = this.Symbol_Table.labelId;
         this.Symbol_Table.labelId++;
@@ -352,25 +346,30 @@ class CompilationEngine {
 
 
         this.eatTerminal('{', 'value');
-        this.compileStatements(env);
+        this.compileStatements(env, subroutineName);
         this.eatTerminal('}', 'value');
         this.vmWriter.writeGoto(this.Symbol_Table.kindOf('class') + '_WHILE_' + labelId1);
         this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_WHILE_' + labelId2);
         // this.fWrite.write(`</whileStatement>` + os.EOL);
     }
 
-    compileReturn(env) {
+    compileReturn(env, subroutineName) {
         // this.fWrite.write(`<returnStatement>` + os.EOL);
+        let type = env[subroutineName].type;
+
         this.eatTerminal('return', 'value');
         if (this.currentToken.value !== ';') {
             this.compileExpression(env);
         }
         this.eatTerminal(';', 'value');
-
+        if (type === 'void') {
+            this.vmWriter.writePush('CONSTANT', 0);
+        }
+        this.vmWriter.writeReturn();
         // this.fWrite.write(`</returnStatement>` + os.EOL);
     }
 
-    compileIf(env) {
+    compileIf(env, subroutineName) {
         // this.fWrite.write(`<ifStatement>` + os.EOL);
         this.eatTerminal('if', 'value');
         this.eatTerminal('(', 'value');
@@ -382,16 +381,19 @@ class CompilationEngine {
         this.vmWriter.writeGoto(this.Symbol_Table.kindOf('class') + '_FALSE_IF_' + labelId);
         this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_TRUE_IF_' + labelId);
         this.eatTerminal('{', 'value');
-        this.compileStatements(env);
+        this.compileStatements(env, subroutineName);
         this.eatTerminal('}', 'value');
+        this.currentToken === 'else' ?
+            this.vmWriter.writeGoto(this.Symbol_Table.kindOf('class') + '_IF_END_' + labelId) : 0;
         this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_FALSE_IF_' + labelId);
         if (this.currentToken.value === 'else') {
             this.eatTerminal('else', 'value');
             this.eatTerminal('{', 'value');
-            this.compileStatements(env);
+            this.compileStatements(env, subroutineName);
             this.eatTerminal('}', 'value');
         }
-
+        this.currentToken === 'else' ?
+            this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + '_IF_END_' + labelId) : 0;
         // this.fWrite.write(`</ifStatement>` + os.EOL);
     }
 
@@ -828,4 +830,4 @@ global_decode = {
     // Add more
 };
 
-new JackCompiler('ConvertToBin/Main.jack', 'ConvertToBin/Main.vm').outputFile(new SymbolTable());
+new JackCompiler('Square/Square.jack', 'Square/Square.vm').outputFile(new SymbolTable());
