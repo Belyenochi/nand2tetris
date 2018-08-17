@@ -83,9 +83,9 @@ class CompilationEngine {
     constructor(tokens, outputFile, Symbol_Table) {
         this.tokens = tokens;
         this.currentToken = '';
-        this.fWrite = fs.createWriteStream(outputFile);
+        // this.fWrite = fs.createWriteStream(outputFile);
         this.Symbol_Table = Symbol_Table;
-        this.vmWriter = new VMWriter();
+        this.vmWriter = new VMWriter(outputFile);
     }
 
     run() {
@@ -94,7 +94,7 @@ class CompilationEngine {
     }
 
     compileClass() {
-        this.fWrite.write(`<class>` + os.EOL);
+        // this.fWrite.write(`<class>` + os.EOL);
         this.eatTerminal('class', 'value');
 
         this.Symbol_Table.define(this.currentToken.value, 'class', '');
@@ -112,14 +112,14 @@ class CompilationEngine {
             this.compileSubroutine();
         }
         this.eatTerminal('}', 'value');
-        this.fWrite.write(`</class>` + os.EOL);
+        // this.fWrite.write(`</class>` + os.EOL);
 
     }
 
     compileClassVarDec() {
         let kind, type;
 
-        this.fWrite.write(`<classVarDec>` + os.EOL);
+        // this.fWrite.write(`<classVarDec>` + os.EOL);
         kind = this.currentToken.value;
 
         this.eatTerminal('keyword', 'type');
@@ -136,7 +136,7 @@ class CompilationEngine {
         }
         this.eatTerminal(';', 'value');
 
-        this.fWrite.write(`</classVarDec>` + os.EOL);
+        // this.fWrite.write(`</classVarDec>` + os.EOL);
 
         if (kind === 'static') {
             for (let i = 0; i < this.Symbol_Table.indexOf(); i++) {
@@ -155,7 +155,7 @@ class CompilationEngine {
     }
 
     compileSubroutine() {
-        this.fWrite.write(`<subroutineDec>` + os.EOL);
+        // this.fWrite.write(`<subroutineDec>` + os.EOL);
         let type, env = this.Symbol_Table.startSubroutine(),kind;
 
         kind = this.currentToken.value; // use to switch method constructor function
@@ -183,26 +183,30 @@ class CompilationEngine {
         this.compileParameterList(env);
 
         this.eatTerminal(')', 'value');
-        this.compileSubroutineBody(env);
-        this.fWrite.write(`</subroutineDec>` + os.EOL);
-
+        this.vmWriter.writeFunction(this.Symbol_Table.kindOf('class') + subroutineName, env.indexOf('var'));
         if (kind === 'constructor') {
             this.vmWriter.writePush('CONSTANT', env.indexOf('argument'));
             this.vmWriter.writeCall('Memory.alloc', 1);
             this.vmWriter.writePop('POINTER', 0);
+        } else if (kind === 'method') {
+            this.vmWriter.writePush('ARG', 0);
+            this.vmWriter.writePop('POINTER', 0);
         }
 
-        this.vmWriter.writeFunction(this.Symbol_Table.kindOf('class') + subroutineName, env.indexOf('var'));
+        this.compileSubroutineBody(env);
+        // this.fWrite.write(`</subroutineDec>` + os.EOL);
+
         if (type === 'void') {
             this.vmWriter.writePush('CONSTANT', 0);
         }
 
+        this.vmWriter.writeReturn();
     }
 
     compileParameterList(env) {
         let type;
 
-        this.fWrite.write(`<parameterList>` + os.EOL);
+        // this.fWrite.write(`<parameterList>` + os.EOL);
         if (this.currentToken.value === 'int' || this.currentToken.value === 'char'
             || this.currentToken.value === 'boolean' || this.currentToken.type === 'identifier') {
             let type = this.currentToken.value;
@@ -222,24 +226,24 @@ class CompilationEngine {
                 this.eatTerminal('identifier', 'type');
             }
         }
-        this.fWrite.write(`</parameterList>` + os.EOL);
+        // this.fWrite.write(`</parameterList>` + os.EOL);
     }
 
     compileSubroutineBody(env) {
-        this.fWrite.write(`<subroutineBody>` + os.EOL);
+        // this.fWrite.write(`<subroutineBody>` + os.EOL);
         this.eatTerminal('{', 'value');
         while (this.currentToken.value === 'var') {
             this.compileVarDec(env);
         }
         this.compileStatements();
         this.eatTerminal('}', 'value');
-        this.fWrite.write(`</subroutineBody>` + os.EOL);
+        // this.fWrite.write(`</subroutineBody>` + os.EOL);
     }
 
     compileVarDec(env) {
         let type;
 
-        this.fWrite.write(`<varDec>` + os.EOL);
+        // this.fWrite.write(`<varDec>` + os.EOL);
         this.eatTerminal('var', 'value');
         type = this.currentToken.value;
         this.compileType();
@@ -252,7 +256,7 @@ class CompilationEngine {
             this.eatTerminal('identifier', 'type');
         }
         this.eatTerminal(';', 'value');
-        this.fWrite.write(`</varDec>` + os.EOL);
+        // this.fWrite.write(`</varDec>` + os.EOL);
 
         for (let i = 0; i < env.indexOf('var'); i ++) {
             this.vmWriter.writePush('LOCAL', i);
@@ -260,7 +264,7 @@ class CompilationEngine {
     }
 
     compileStatements() {
-        this.fWrite.write(`<statements>` + os.EOL);
+        // this.fWrite.write(`<statements>` + os.EOL);
         while (this.currentToken.value === 'let' || this.currentToken.value === 'if'
         || this.currentToken.value === 'while' || this.currentToken.value === 'do'
         || this.currentToken.value === 'return') {
@@ -272,21 +276,21 @@ class CompilationEngine {
                 default       : this.compileReturn();break;
             }
         }
-        this.fWrite.write(`</statements>` + os.EOL);
+        // this.fWrite.write(`</statements>` + os.EOL);
     }
 
     compileDo() {
-        this.fWrite.write(`<doStatement>` + os.EOL);
+        // this.fWrite.write(`<doStatement>` + os.EOL);
         this.eatTerminal('do', 'value');
         this.compileSubroutineCall();
         this.eatTerminal(';', 'value');
-        this.fWrite.write(`</doStatement>` + os.EOL);
+        // this.fWrite.write(`</doStatement>` + os.EOL);
     }
 
     compileLet() {
         let variableName;
 
-        this.fWrite.write(`<letStatement>` + os.EOL);
+        // this.fWrite.write(`<letStatement>` + os.EOL);
         this.eatTerminal('let', 'value');
         variableName = this.currentToken.value;
         this.eatTerminal('identifier', 'type');
@@ -303,11 +307,11 @@ class CompilationEngine {
         let index = this.Symbol_Table.indexOf(variableName);
         this.mapToMemory(kind, index, 'pop');
 
-        this.fWrite.write(`</letStatement>` + os.EOL);
+        // this.fWrite.write(`</letStatement>` + os.EOL);
     }
 
     compileWhile() {
-        this.fWrite.write(`<whileStatement>` + os.EOL);
+        // this.fWrite.write(`<whileStatement>` + os.EOL);
         this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + this.Symbol_Table.labelId++);
 
         this.eatTerminal('while', 'value');
@@ -321,21 +325,22 @@ class CompilationEngine {
         this.eatTerminal('}', 'value');
         this.vmWriter.writeIf(this.Symbol_Table.kindOf('class') + (this.Symbol_Table.labelId - 1));
         this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + this.Symbol_Table.labelId);
-        this.fWrite.write(`</whileStatement>` + os.EOL);
+        // this.fWrite.write(`</whileStatement>` + os.EOL);
     }
 
     compileReturn() {
-        this.fWrite.write(`<returnStatement>` + os.EOL);
+        // this.fWrite.write(`<returnStatement>` + os.EOL);
         this.eatTerminal('return', 'value');
         if (this.currentToken.value !== ';') {
             this.compileExpression();
         }
         this.eatTerminal(';', 'value');
-        this.fWrite.write(`</returnStatement>` + os.EOL);
+
+        // this.fWrite.write(`</returnStatement>` + os.EOL);
     }
 
     compileIf() {
-        this.fWrite.write(`<ifStatement>` + os.EOL);
+        // this.fWrite.write(`<ifStatement>` + os.EOL);
         this.eatTerminal('if', 'value');
         this.eatTerminal('(', 'value');
         this.compileExpression();
@@ -354,7 +359,7 @@ class CompilationEngine {
             this.eatTerminal('}', 'value');
         }
         this.vmWriter.writeLabel(this.Symbol_Table.kindOf('class') + this.Symbol_Table.labelId - 1);
-        this.fWrite.write(`</ifStatement>` + os.EOL);
+        // this.fWrite.write(`</ifStatement>` + os.EOL);
     }
 
     compileSubroutineCall() {
@@ -376,7 +381,7 @@ class CompilationEngine {
     }
 
     compileExpression() {
-        this.fWrite.write(`<expression>` + os.EOL);
+        // this.fWrite.write(`<expression>` + os.EOL);
         this.compileTerm();
 
         while (/\+|\-|\*|\/|\&|\||\>|\<|\=/.exec(this.currentToken.value)) {
@@ -393,11 +398,11 @@ class CompilationEngine {
             }
             this.compileTerm();
         }
-        this.fWrite.write(`</expression>` + os.EOL);
+        // this.fWrite.write(`</expression>` + os.EOL);
     }
 
     compileTerm() {
-        this.fWrite.write(`<term>` + os.EOL);
+        // this.fWrite.write(`<term>` + os.EOL);
         if (this.currentToken.type === 'stringConstant') {
             let length = this.currentToken.value.length;
             this.vmWriter.writePush('CONSTANT', length);
@@ -455,11 +460,11 @@ class CompilationEngine {
                 this.eatTerminal('identifier', 'type');
             }
         }
-        this.fWrite.write(`</term>` + os.EOL);
+        // this.fWrite.write(`</term>` + os.EOL);
     }
 
     compileExpressionList() {
-        this.fWrite.write(`<expressionList>` + os.EOL);
+        // this.fWrite.write(`<expressionList>` + os.EOL);
         if (this.currentToken.type === 'identifier' || this.currentToken.type === 'stringConstant'
             || this.currentToken.type === 'integerConstant' || this.currentToken.type === 'keyword'
             || this.currentToken.value === '(' || this.currentToken.value === '~'
@@ -470,16 +475,16 @@ class CompilationEngine {
                 this.compileExpression();
             }
         }
-        this.fWrite.write(`</expressionList>` + os.EOL);
+        // this.fWrite.write(`</expressionList>` + os.EOL);
     }
 
     eatTerminal(input, prop) {
         if (input === this.currentToken[prop]) {
-            if (global_decode[input]) {
-                this.currentToken.value = global_decode[input];
-            }
-            let data = `<${this.currentToken.type}> ${this.currentToken.value} </${this.currentToken.type}>`;
-            this.fWrite.write(data + os.EOL);
+            // if (global_decode[input]) {
+            //     this.currentToken.value = global_decode[input];
+            // }
+            // let data = `<${this.currentToken.type}> ${this.currentToken.value} </${this.currentToken.type}>`;
+            // this.fWrite.write(data + os.EOL);
             this.currentToken = this.tokens.shift()
         } else {
             throw Error("Unexpected token: " + input)
@@ -520,7 +525,7 @@ class CompilationEngine {
     }
 }
 
-class JackAnalyzer {
+class JackCompiler {
     constructor(inputFile, outputFile) {
         this.input = this.clearData(this.readFileStream(inputFile));
         this.output = outputFile;
@@ -545,8 +550,8 @@ class JackAnalyzer {
         }).join("");
     }
 
-    outputFile(Symbol_Table) {
-        let jackTokenizer = new JackTokenizer(this.input), compEngine;
+    outputFile() {
+        let jackTokenizer = new JackTokenizer(this.input), compEngine, Symbol_Table = new SymbolTable();
 
         while (jackTokenizer.hasMoreTokens()) {
             jackTokenizer.advance();
@@ -717,4 +722,4 @@ global_decode = {
     // Add more
 };
 
-new JackAnalyzer('Square/SquareGame.jack', 'Square/SquareGame.xml2').outputFile(new SymbolTable());
+new JackCompiler('Square/SquareGame.jack', 'Square/SquareGame.xml2').outputFile(new SymbolTable());
