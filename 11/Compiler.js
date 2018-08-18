@@ -37,8 +37,8 @@ class JackTokenizer {
         let match;
 
         this.input = this.input.trim();
-        if (match = /^(class|constructor|function|method|field|static|var|int|char|boolean|void|true|false|null|this|let|do|if|else|while|return)/.exec(this.input)) {
-            this.tokens.push({type :'keyword',value: match[0]});
+        if (match = /^(class|constructor|function|method|field|static|var|int|char|boolean|void|true|false|null|this|let|do|if|else|while|return)(?![a-zA-Z])/.exec(this.input)) {
+            this.tokens.push({type :'keyword',value: match[1]});
         } else if (match = /^(\{|\}|\(|\)|\[|\]|\.|\,|;|\+|\-|\*|\/|&|\||<|>|=|~)/.exec(this.input)) {
             this.tokens.push({type :'symbol',value: match[0]});
         } else if (match = /^(327[0-6][0-7])|^(3[012][0-6][0-9][0-9])|^([1-2]?[0-9]?[0-9]?[0-9]?[0-9])/.exec(this.input)) {
@@ -304,27 +304,38 @@ class CompilationEngine {
     }
 
     compileLet(env, subroutineName) {
-        let variableName;
+        let variableName, isArray = false;
 
         // this.fWrite.write(`<letStatement>` + os.EOL);
         this.eatTerminal('let', 'value');
         variableName = this.currentToken.value;
         this.eatTerminal('identifier', 'type');
         if (this.currentToken.value === '[') {
-            this.mapToMemory(env.kindOf(variableName),
-                env.indexOf(variableName), 'push');
+
             this.eatTerminal('[', 'value');
             this.compileExpression(env);
             this.eatTerminal(']', 'value');
+            this.mapToMemory(env.kindOf(variableName),
+                env.indexOf(variableName), 'push');
+
             this.vmWriter.writeArithmetic('ADD');
+
+            isArray = true;
         }
         this.eatTerminal('=', 'value');
         this.compileExpression(env);
         this.eatTerminal(';', 'value');
 
-        let kind = env.kindOf(variableName);
-        let index = env.indexOf(variableName);
-        this.mapToMemory(kind, index, 'pop');
+        if (isArray) {
+            this.vmWriter.writePop('TEMP', 0);
+            this.vmWriter.writePop('POINTER', 1);
+            this.vmWriter.writePush('TEMP', 0);
+            this.vmWriter.writePop('THAT', 0);
+        } else {
+            let kind = env.kindOf(variableName);
+            let index = env.indexOf(variableName);
+            this.mapToMemory(kind, index, 'pop');
+        }
 
         // this.fWrite.write(`</letStatement>` + os.EOL);
     }
@@ -542,6 +553,7 @@ class CompilationEngine {
             if (second.value === '(' || second.value === '.') {
                 this.compileSubroutineCall(env);
             } else if (second.value === '[') {
+
                 this.mapToMemory(env.kindOf(this.currentToken.value),
                     env.indexOf(this.currentToken.value), 'push');
 
@@ -551,6 +563,7 @@ class CompilationEngine {
                 this.eatTerminal(']', 'value');
 
                 this.vmWriter.writeArithmetic('ADD');
+
             } else {
                 this.mapToMemory(env.kindOf(this.currentToken.value),
                     env.indexOf(this.currentToken.value), 'push');
@@ -830,4 +843,4 @@ global_decode = {
     // Add more
 };
 
-new JackCompiler('Square/Square.jack', 'Square/Square.vm').outputFile(new SymbolTable());
+new JackCompiler('ComplexArrays/Main.jack', 'ComplexArrays/Main.vm').outputFile(new SymbolTable());
