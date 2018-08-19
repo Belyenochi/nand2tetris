@@ -298,7 +298,7 @@ class CompilationEngine {
         // this.fWrite.write(`<doStatement>` + os.EOL);
         this.eatTerminal('do', 'value');
         this.compileSubroutineCall(env);
-        this.vmWriter.writePop('TEMP', 0);
+        this.vmWriter.writePop('TEMP', 0); // do don't need return value
         this.eatTerminal(';', 'value');
         // this.fWrite.write(`</doStatement>` + os.EOL);
     }
