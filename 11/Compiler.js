@@ -139,7 +139,7 @@ class CompilationEngine {
         // this.fWrite.write(`</classVarDec>` + os.EOL);
 
         if (kind === 'static') {
-            for (let i = 0; i < this.Symbol_Table.indexOf(); i++) {
+            for (let i = 0; i < this.Symbol_Table.varCount('static'); i++) {
                 this.vmWriter.writePush('STATIC', i);
             }
         }
@@ -386,6 +386,7 @@ class CompilationEngine {
         this.eatTerminal('(', 'value');
         this.compileExpression(env);
         this.eatTerminal(')', 'value');
+        // this.vmWriter.writeArithmetic('NEG');
         let labelId = this.Symbol_Table.labelId;
         this.Symbol_Table.labelId++;
         this.vmWriter.writeIf(this.Symbol_Table.kindOf('class') + '_TRUE_IF_' + labelId);
@@ -553,16 +554,17 @@ class CompilationEngine {
             if (second.value === '(' || second.value === '.') {
                 this.compileSubroutineCall(env);
             } else if (second.value === '[') {
-
-                this.mapToMemory(env.kindOf(this.currentToken.value),
-                    env.indexOf(this.currentToken.value), 'push');
+                let variable = this.currentToken.value;
 
                 this.eatTerminal('identifier', 'type');
                 this.eatTerminal('[', 'value');
                 this.compileExpression(env);
                 this.eatTerminal(']', 'value');
+                this.mapToMemory(env.kindOf(variable), env.indexOf(variable), 'push');
 
                 this.vmWriter.writeArithmetic('ADD');
+                this.vmWriter.writePop('POINTER', 1);
+                this.vmWriter.writePush('THAT', 0);
 
             } else {
                 this.mapToMemory(env.kindOf(this.currentToken.value),
@@ -843,4 +845,4 @@ global_decode = {
     // Add more
 };
 
-new JackCompiler('ComplexArrays/Main.jack', 'ComplexArrays/Main.vm').outputFile(new SymbolTable());
+new JackCompiler('Pong/PongGame.jack', 'Pong/PongGame.vm').outputFile(new SymbolTable());
