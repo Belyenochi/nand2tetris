@@ -11,54 +11,131 @@
  * string-oriented operations.
  */
 class String {
-
+    field Array str;
+    field int length;
     /** constructs a new empty string with a maximum length of maxLength
      *  and initial length of 0. */
     constructor String new(int maxLength) {
+        let str = Array.new(maxLength);
+        let length = 0;
+        return this;
     }
 
     /** Disposes this string. */
     method void dispose() {
+        do Memory.deAlloc(str);
+        return;
     }
 
     /** Returns the current length of this string. */
     method int length() {
+        return length;
     }
 
     /** Returns the character at the j-th location of this string. */
     method char charAt(int j) {
+        return str[j];
     }
 
     /** Sets the character at the j-th location of this string to c. */
     method void setCharAt(int j, char c) {
+        let str[j] = c;
+        return;
     }
 
     /** Appends c to this string's end and returns this string. */
     method String appendChar(char c) {
+        let str[length] = c;
+        let length = length + 1;
+        return str;
     }
 
     /** Erases the last character from this string. */
     method void eraseLastChar() {
+        let length = length - 1;
+        return;
+    }
+     /** 48 <= ascii(c) <= 57 is digit*/
+    function boolean isDigit(char c){
+        return ~(c < 48) & ~(c > 57);
     }
 
-    /** Returns the integer value of this string, 
+    /** must be called after String.isDigit */
+    function int charToDigit(char c){
+        return c - 48;
+    }
+    /** Returns the integer value of this string,
      *  until a non-digit character is detected. */
     method int intValue() {
+        var int intVal,index;
+        var boolean neg;
+
+        let intVal = 0;
+
+        //check if first char is '-'
+        if((length > 0) & (str[0] = 45)){
+            let neg = true;
+            let index = 1;
+        }else{
+            let neg = false;
+            let index = 0;
+        }
+
+        while((index < length) & String.isDigit(str[index])){
+            let intVal = (intVal * 10) + String.charToDigit(str[index]);
+            let index = index + 1;
+        }
+
+        if(neg){
+            return -intVal;
+        }else{
+            return intVal;
+        }
+    }
+
+    /** int->string
+     *                                            */
+    method void int2String(int val) {
+        var string lastDigit;
+
+        let lastDigit = val - (10 * (val / 10)) + 48;
+        if (val < 10) {
+            do appendChar(lastDigit);
+        } else {
+            let val = val/10;
+            do int2String(val);
+            do appendChar(lastDigit);
+        }
+
+        return;
     }
 
     /** Sets this string to hold a representation of the given value. */
     method void setInt(int val) {
+        let length = 0;
+
+        if(val < 0){
+            let val = -val;
+            do appendChar(45);
+        }
+
+        let str = int2String(val);
+
+        return;
     }
 
     /** Returns the new line character. */
     function char newLine() {
+        return 128;
     }
 
     /** Returns the backspace character. */
     function char backSpace() {
+        return 129;
     }
 
     /** Returns the double quote (") character. */
     function char doubleQuote() {
+        return 34;
     }
 }
